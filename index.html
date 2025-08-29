@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Abandonado 3D - Juego de Terror</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            cursor: none;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #flashlightBattery {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+            font-size: 14px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .battery-icon {
+            font-size: 20px;
+        }
+
+        .battery-bar {
+            width: 100px;
+            height: 15px;
+            border: 2px solid #666;
+            border-radius: 3px;
+            background: #222;
+            overflow: hidden;
+        }
+
+        .battery-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #FFC107, #F44336);
+            transition: width 0.3s ease;
+            width: 100%;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #888;
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+
+        #gameOverScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: #ff4444;
+            padding: 40px;
+            border: 3px solid #666;
+            text-align: center;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: auto;
+        }
+
+        #gameOverScreen h1 {
+            margin-bottom: 20px;
+            animation: flicker 0.5s infinite alternate;
+        }
+
+        #restartBtn {
+            background: #333;
+            color: #fff;
+            border: 2px solid #666;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        #restartBtn:hover {
+            background: #555;
+            border-color: #888;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff4444;
+            font-size: 20px;
+            pointer-events: none;
+            z-index: 100;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="ui">
+            <div id="flashlightBattery">
+                <div class="battery-icon">🔋</div>
+                <div class="battery-bar">
+                    <div id="batteryLevel" class="battery-fill"></div>
+                </div>
+                <span id="batteryPercent">100%</span>
+            </div>
+            <div id="instructions">
+                WASD - Mover | Mouse - Mirar | Click - Linterna | E - Interactuar
+            </div>
+            <div id="crosshair">✚</div>
+            <div id="gameOverScreen" class="hidden">
+                <h1>TE HAN ENCONTRADO...</h1>
+                <button id="restartBtn">Reintentar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        class HorrorGame3D {
+            constructor() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFShadowMap;
+                this.renderer.setClearColor(0x000000);
+                document.getElementById('gameContainer').appendChild(this.renderer.domElement);
+
+                // Player properties
+                this.player = {
+                    x: 5,
+                    y: 1.5,
+                    z: 5,
+                    speed: 0.1,
+                    height: 1.7
+                };
+
+                // Movement
+                this.keys = {};
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.yaw = 0;
+                this.pitch = 0;
+
+                // Flashlight properties
+                this.flashlight = {
+                    on: true,
+                    battery: 100,
+                    drainRate: 0.03,
+                    light: null
+                };
+
+                // Game state
+                this.gameOver = false;
+                this.timeElapsed = 0;
+                this.enemies = [];
+                this.paranormalEvents = [];
+
+                // Sounds
+                this.sounds = {
+                    footsteps: null,
+                    ambient: null,
+                    jumpscare: null
+                };
+
+                this.init();
+            }
+
+            init() {
+                this.setupCamera();
+                this.createHospital();
+                this.createLighting();
+                this.setupControls();
+                this.createAmbientSounds();
+                this.gameLoop();
+                this.startParanormalEvents();
+            }
+
+            setupCamera() {
+                this.camera.position.set(this.player.x, this.player.y, this.player.z);
+            }
+
+            createHospital() {
+                // Ground
+                const floorGeometry = new THREE.PlaneGeometry(100, 100);
+                const floorMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x1a1a1a,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+                floor.rotation.x = -Math.PI / 2;
+                floor.receiveShadow = true;
+                this.scene.add(floor);
+
+                // Hospital walls
+                this.createWalls();
+                this.createRooms();
+                this.createMedicalEquipment();
+                this.createBloodStains();
+                this.createDebris();
+            }
+
+            createWalls() {
+                const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x2a2a2a });
+                
+                // Exterior walls
+                const wallHeight = 4;
+                const wallThickness = 0.5;
+                
+                // North wall
+                const northWall = new THREE.Mesh(
+                    new THREE.BoxGeometry(50, wallHeight, wallThickness),
+                    wallMaterial
+                );
+                northWall.position.set(0, wallHeight/2, -25);
+                northWall.castShadow = true;
+                this.scene.add(northWall);
+
+                // South wall
+                const southWall = new THREE.Mesh(
+                    new THREE.BoxGeometry(50, wallHeight, wallThickness),
+                    wallMaterial
+                );
+                southWall.position.set(0, wallHeight/2, 25);
+                southWall.castShadow = true;
+                this.scene.add(southWall);
+
+                // East wall
+                const eastWall = new THREE.Mesh(
+                    new THREE.BoxGeometry(wallThickness, wallHeight, 50),
+                    wallMaterial
+                );
+                eastWall.position.set(25, wallHeight/2, 0);
+                eastWall.castShadow = true;
+                this.scene.add(eastWall);
+
+                // West wall
+                const westWall = new THREE.Mesh(
+                    new THREE.BoxGeometry(wallThickness, wallHeight, 50),
+                    wallMaterial
+                );
+                westWall.position.set(-25, wallHeight/2, 0);
+                westWall.castShadow = true;
+                this.scene.add(westWall);
+
+                // Interior walls
+                this.createInteriorWalls(wallMaterial, wallHeight, wallThickness);
+            }
+
+            createInteriorWalls(material, height, thickness) {
+                // Main corridor walls
+                const corridorWall1 = new THREE.Mesh(
+                    new THREE.BoxGeometry(thickness, height, 20),
+                    material
+                );
+                corridorWall1.position.set(-10, height/2, -5);
+                corridorWall1.castShadow = true;
+                this.scene.add(corridorWall1);
+
+                const corridorWall2 = new THREE.Mesh(
+                    new THREE.BoxGeometry(thickness, height, 20),
+                    material
+                );
+                corridorWall2.position.set(10, height/2, -5);
+                corridorWall2.castShadow = true;
+                this.scene.add(corridorWall2);
+
+                // Room dividers
+                for (let i = 0; i < 3; i++) {
+                    const roomWall = new THREE.Mesh(
+                        new THREE.BoxGeometry(15, height, thickness),
+                        material
+                    );
+                    roomWall.position.set(-17.5, height/2, -15 + i * 10);
+                    roomWall.castShadow = true;
+                    this.scene.add(roomWall);
+
+                    const roomWall2 = new THREE.Mesh(
+                        new THREE.BoxGeometry(15, height, thickness),
+                        material
+                    );
+                    roomWall2.position.set(17.5, height/2, -15 + i * 10);
+                    roomWall2.castShadow = true;
+                    this.scene.add(roomWall2);
+                }
+            }
+
+            createRooms() {
+                // Patient rooms with beds
+                for (let i = 0; i < 6; i++) {
+                    const x = (i % 2 === 0) ? -17 : 17;
+                    const z = -15 + Math.floor(i / 2) * 10;
+                    this.createBed(x, z);
+                    this.createNightstand(x + 3, z);
+                }
+
+                // Surgery rooms
+                this.createSurgeryTable(0, 15);
+                this.createSurgicalInstruments(2, 15);
+
+                // Laboratory
+                this.createLabEquipment(-15, 15);
+                this.createChemicalBottles(-15, 17);
+            }
+
+            createBed(x, z) {
+                const bedMaterial = new THREE.MeshLambertMaterial({ color: 0x4a3c28 });
+                
+                // Bed frame
+                const bedFrame = new THREE.Mesh(
+                    new THREE.BoxGeometry(2, 0.5, 4),
+                    bedMaterial
+                );
+                bedFrame.position.set(x, 0.25, z);
+                bedFrame.castShadow = true;
+                this.scene.add(bedFrame);
+
+                // Mattress (dirty/bloody)
+                const mattressMaterial = new THREE.MeshLambertMaterial({ color: 0x3a2a1a });
+                const mattress = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.8, 0.3, 3.8),
+                    mattressMaterial
+                );
+                mattress.position.set(x, 0.65, z);
+                mattress.castShadow = true;
+                this.scene.add(mattress);
+            }
+
+            createNightstand(x, z) {
+                const nightstandMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
+                const nightstand = new THREE.Mesh(
+                    new THREE.BoxGeometry(1, 1.5, 1),
+                    nightstandMaterial
+                );
+                nightstand.position.set(x, 0.75, z);
+                nightstand.castShadow = true;
+                this.scene.add(nightstand);
+            }
+
+            createSurgeryTable(x, z) {
+                const tableMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
+                const surgeryTable = new THREE.Mesh(
+                    new THREE.BoxGeometry(2, 0.3, 4),
+                    tableMaterial
+                );
+                surgeryTable.position.set(x, 1, z);
+                surgeryTable.castShadow = true;
+                this.scene.add(surgeryTable);
+
+                // Blood stains on table
+                const bloodMaterial = new THREE.MeshLambertMaterial({ color: 0x8b0000 });
+                const bloodStain = new THREE.Mesh(
+                    new THREE.CircleGeometry(0.5, 8),
+                    bloodMaterial
+                );
+                bloodStain.rotation.x = -Math.PI / 2;
+                bloodStain.position.set(x, 1.31, z);
+                this.scene.add(bloodStain);
+            }
+
+            createSurgicalInstruments(x, z) {
+                const metalMaterial = new THREE.MeshLambertMaterial({ color: 0x777777 });
+                
+                // Scalpel
+                const scalpel = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.1, 0.05, 0.8),
+                    metalMaterial
+                );
+                scalpel.position.set(x, 1.32, z);
+                scalpel.castShadow = true;
+                this.scene.add(scalpel);
+
+                // Surgical tray
+                const tray = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.5, 0.1, 1),
+                    metalMaterial
+                );
+                tray.position.set(x, 1.3, z + 1);
+                tray.castShadow = true;
+                this.scene.add(tray);
+            }
+
+            createLabEquipment(x, z) {
+                const equipmentMaterial = new THREE.MeshLambertMaterial({ color: 0x444444 });
+                
+                // Microscope
+                const microscope = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.3, 0.5, 1),
+                    equipmentMaterial
+                );
+                microscope.position.set(x, 1.5, z);
+                microscope.castShadow = true;
+                this.scene.add(microscope);
+
+                // Lab table
+                const labTable = new THREE.Mesh(
+                    new THREE.BoxGeometry(3, 0.3, 2),
+                    new THREE.MeshLambertMaterial({ color: 0x333333 })
+                );
+                labTable.position.set(x, 1, z);
+                labTable.castShadow = true;
+                this.scene.add(labTable);
+            }
+
+            createChemicalBottles(x, z) {
+                const colors = [0x00ff00, 0xff0000, 0x0000ff, 0xffff00];
+                
+                for (let i = 0; i < 4; i++) {
+                    const bottleMaterial = new THREE.MeshLambertMaterial({ 
+                        color: colors[i],
+                        transparent: true,
+                        opacity: 0.7
+                    });
+                    
+                    const bottle = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.2, 0.2, 0.8),
+                        bottleMaterial
+                    );
+                    bottle.position.set(x + i * 0.5, 1.7, z);
+                    bottle.castShadow = true;
+                    this.scene.add(bottle);
+
+                    // Some bottles are broken
+                    if (Math.random() < 0.3) {
+                        bottle.scale.y = 0.5;
+                        bottle.position.y = 1.5;
+                        
+                        // Add spilled liquid
+                        const spill = new THREE.Mesh(
+                            new THREE.CircleGeometry(0.3, 8),
+                            new THREE.MeshLambertMaterial({ 
+                                color: colors[i],
+                                transparent: true,
+                                opacity: 0.5
+                            })
+                        );
+                        spill.rotation.x = -Math.PI / 2;
+                        spill.position.set(x + i * 0.5, 1.31, z);
+                        this.scene.add(spill);
+                    }
+                }
+            }
+
+            createMedicalEquipment() {
+                // Wheelchairs
+                for (let i = 0; i < 3; i++) {
+                    const x = -20 + Math.random() * 40;
+                    const z = -20 + Math.random() * 40;
+                    this.createWheelchair(x, z);
+                }
+
+                // IV stands
+                for (let i = 0; i < 4; i++) {
+                    const x = -20 + Math.random() * 40;
+                    const z = -20 + Math.random() * 40;
+                    this.createIVStand(x, z);
+                }
+            }
+
+            createWheelchair(x, z) {
+                const chairMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
+                
+                // Seat
+                const seat = new THREE.Mesh(
+                    new THREE.BoxGeometry(1, 0.1, 1),
+                    chairMaterial
+                );
+                seat.position.set(x, 0.8, z);
+                seat.castShadow = true;
+                this.scene.add(seat);
+
+                // Backrest
+                const backrest = new THREE.Mesh(
+                    new THREE.BoxGeometry(1, 1.5, 0.1),
+                    chairMaterial
+                );
+                backrest.position.set(x, 1.5, z - 0.45);
+                backrest.castShadow = true;
+                this.scene.add(backrest);
+
+                // Wheels
+                for (let i = 0; i < 2; i++) {
+                    const wheel = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.3, 0.3, 0.1),
+                        new THREE.MeshLambertMaterial({ color: 0x333333 })
+                    );
+                    wheel.rotation.z = Math.PI / 2;
+                    wheel.position.set(x + (i === 0 ? -0.6 : 0.6), 0.3, z);
+                    wheel.castShadow = true;
+                    this.scene.add(wheel);
+                }
+            }
+
+            createIVStand(x, z) {
+                const standMaterial = new THREE.MeshLambertMaterial({ color: 0x888888 });
+                
+                // Pole
+                const pole = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.05, 0.05, 3),
+                    standMaterial
+                );
+                pole.position.set(x, 1.5, z);
+                pole.castShadow = true;
+                this.scene.add(pole);
+
+                // Base
+                const base = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.5, 0.5, 0.1),
+                    standMaterial
+                );
+                base.position.set(x, 0.05, z);
+                base.castShadow = true;
+                this.scene.add(base);
+
+                // IV bag (sometimes present)
+                if (Math.random() < 0.7) {
+                    const bag = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.3, 0.5, 0.1),
+                        new THREE.MeshLambertMaterial({ 
+                            color: 0x444444,
+                            transparent: true,
+                            opacity: 0.8
+                        })
+                    );
+                    bag.position.set(x, 2.8, z);
+                    bag.castShadow = true;
+                    this.scene.add(bag);
+                }
+            }
+
+            createBloodStains() {
+                const bloodMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x8b0000,
+                    transparent: true,
+                    opacity: 0.7
+                });
+
+                for (let i = 0; i < 20; i++) {
+                    const x = -20 + Math.random() * 40;
+                    const z = -20 + Math.random() * 40;
+                    const size = 0.5 + Math.random() * 2;
+
+                    const bloodStain = new THREE.Mesh(
+                        new THREE.CircleGeometry(size, 8),
+                        bloodMaterial
+                    );
+                    bloodStain.rotation.x = -Math.PI / 2;
+                    bloodStain.position.set(x, 0.01, z);
+                    this.scene.add(bloodStain);
+                }
+
+                // Blood on walls
+                for (let i = 0; i < 10; i++) {
+                    const x = -20 + Math.random() * 40;
+                    const y = 0.5 + Math.random() * 2;
+                    const z = Math.random() < 0.5 ? -24.9 : 24.9;
+
+                    const wallBlood = new THREE.Mesh(
+                        new THREE.CircleGeometry(0.3 + Math.random() * 0.5, 8),
+                        bloodMaterial
+                    );
+                    wallBlood.position.set(x, y, z);
+                    this.scene.add(wallBlood);
+                }
+            }
+
+            createDebris() {
+                // Fallen ceiling tiles
+                for (let i = 0; i < 8; i++) {
+                    const x = -20 + Math.random() * 40;
+                    const z = -20 + Math.random() * 40;
+                    
+                    const debris = new THREE.Mesh(
+                        new THREE.BoxGeometry(1, 0.1, 1),
+                        new THREE.MeshLambertMaterial({ color: 0x555555 })
+                    );
+                    debris.position.set(x, 0.05, z);
+                    debris.rotation.y = Math.random() * Math.PI;
+                    debris.castShadow = true;
+                    this.scene.add(debris);
+                }
+
+                // Broken glass
+                for (let i = 0; i < 5; i++) {
+                    const x = -20 + Math.random() * 40;
+                    const z = -20 + Math.random() * 40;
+                    
+                    const glass = new THREE.Mesh(
+                        new THREE.PlaneGeometry(0.5, 0.5),
+                        new THREE.MeshLambertMaterial({ 
+                            color: 0xffffff,
+                            transparent: true,
+                            opacity: 0.3
+                        })
+                    );
+                    glass.rotation.x = -Math.PI / 2;
+                    glass.position.set(x, 0.01, z);
+                    this.scene.add(glass);
+                }
+            }
+
+            createLighting() {
+                // Ambient light (very dim)
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.1);
+                this.scene.add(ambientLight);
+
+                // Flickering hospital lights
+                this.createFlickeringLights();
+
+                // Flashlight
+                this.flashlight.light = new THREE.SpotLight(0xffffff, 1, 20, Math.PI / 6, 0.5);
+                this.flashlight.light.position.copy(this.camera.position);
+                this.flashlight.light.target.position.set(0, 0, -1);
+                this.flashlight.light.castShadow = true;
+                this.flashlight.light.shadow.mapSize.width = 512;
+                this.flashlight.light.shadow.mapSize.height = 512;
+                this.scene.add(this.flashlight.light);
+                this.scene.add(this.flashlight.light.target);
+            }
+
+            createFlickeringLights() {
+                // Overhead fluorescent lights
+                for (let i = 0; i < 6; i++) {
+                    const x = -20 + (i % 3) * 20;
+                    const z = -10 + Math.floor(i / 3) * 20;
+                    
+                    const light = new THREE.PointLight(0xffffff, 0.3, 15);
+                    light.position.set(x, 3.5, z);
+                    light.castShadow = true;
+                    light.shadow.mapSize.width = 256;
+                    light.shadow.mapSize.height = 256;
+                    
+                    // Add flickering effect
+                    light.userData = {
+                        originalIntensity: 0.3,
+                        flickerTime: Math.random() * 1000
+                    };
+                    
+                    this.scene.add(light);
+                    
+                    // Add light fixture
+                    const fixture = new THREE.Mesh(
+                        new THREE.BoxGeometry(2, 0.2, 0.5),
+                        new THREE.MeshLambertMaterial({ color: 0x888888 })
+                    );
+                    fixture.position.set(x, 3.8, z);
+                    fixture.castShadow = true;
+                    this.scene.add(fixture);
+                }
+            }
+
+            createAmbientSounds() {
+                // Create audio context for 3D audio
+                try {
+                    const listener = new THREE.AudioListener();
+                    this.camera.add(listener);
+
+                    // Ambient hospital sounds
+                    const ambientSound = new THREE.Audio(listener);
+                    this.scene.add(ambientSound);
+                    
+                    // Footstep sounds
+                    this.sounds.footsteps = new THREE.Audio(listener);
+                    this.scene.add(this.sounds.footsteps);
+                } catch (e) {
+                    console.log('Audio not available');
+                }
+            }
+
+            setupControls() {
+                document.addEventListener('keydown', (e) => {
+                    this.keys[e.key.toLowerCase()] = true;
+                    if (e.key.toLowerCase() === ' ') {
+                        e.preventDefault();
+                        this.toggleFlashlight();
+                    }
+                });
+
+                document.addEventListener('keyup', (e) => {
+                    this.keys[e.key.toLowerCase()] = false;
+                });
+
+                document.addEventListener('click', () => {
+                    this.toggleFlashlight();
+                    document.body.requestPointerLock();
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (document.pointerLockElement === document.body) {
+                        this.mouseX += e.movementX || e.mozMovementX || e.webkitMovementX || 0;
+                        this.mouseY += e.movementY || e.mozMovementY || e.webkitMovementY || 0;
+
+                        this.yaw = this.mouseX * 0.002;
+                        this.pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.mouseY * 0.002));
+                    }
+                });
+
+                document.getElementById('restartBtn').addEventListener('click', () => {
+                    this.restart();
+                });
+
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+            }
+
+            updatePlayer() {
+                if (this.gameOver) return;
+
+                const moveSpeed = this.player.speed;
+                let newX = this.player.x;
+                let newZ = this.player.z;
+
+                // Calculate movement direction based on camera rotation
+                const forward = new THREE.Vector3(0, 0, -1);
+                const right = new THREE.Vector3(1, 0, 0);
+                
+                forward.applyQuaternion(this.camera.quaternion);
+                right.applyQuaternion(this.camera.quaternion);
+                
+                forward.y = 0;
+                right.y = 0;
+                forward.normalize();
+                right.normalize();
+
+                // Movement
+                if (this.keys['w']) {
+                    newX += forward.x * moveSpeed;
+                    newZ += forward.z * moveSpeed;
+                }
+                if (this.keys['s']) {
+                    newX -= forward.x * moveSpeed;
+                    newZ -= forward.z * moveSpeed;
+                }
+                if (this.keys['a']) {
+                    newX -= right.x * moveSpeed;
+                    newZ -= right.z * moveSpeed;
+                }
+                if (this.keys['d']) {
+                    newX += right.x * moveSpeed;
+                    newZ += right.z * moveSpeed;
+                }
+
+                // Simple collision detection (keep player within bounds)
+                if (newX > -24 && newX < 24 && newZ > -24 && newZ < 24) {
+                    this.player.x = newX;
+                    this.player.z = newZ;
+                }
+
+                // Update camera position and rotation
+                this.camera.position.set(this.player.x, this.player.y, this.player.z);
+                this.camera.rotation.set(-this.pitch, this.yaw, 0);
+
+                // Update flashlight
+                if (this.flashlight.light) {
+                    this.flashlight.light.position.copy(this.camera.position);
+                    
+                    const direction = new THREE.Vector3(0, 0, -1);
+                    direction.applyQuaternion(this.camera.quaternion);
+                    this.flashlight.light.target.position.copy(this.camera.position).add(direction);
+                }
+
+                // Drain battery
+                if (this.flashlight.on && this.flashlight.battery > 0) {
+                    this.flashlight.battery -= this.flashlight.drainRate;
+                    this.updateBatteryDisplay();
+                    
+                    if (this.flashlight.battery <= 0) {
+                        this.flashlight.light.intensity = 0;
+                    }
+                }
+            }
+
+            toggleFlashlight() {
+                this.flashlight.on = !this.flashlight.on;
+                if (this.flashlight.light) {
+                    this.flashlight.light.intensity = (this.flashlight.on && this.flashlight.battery > 0) ? 1 : 0;
+                }
+            }
+
+            updateBatteryDisplay() {
+                const batteryLevel = document.getElementById('batteryLevel');
+                const batteryPercent = document.getElementById('batteryPercent');
+                
+                batteryLevel.style.width = `${Math.max(0, this.flashlight.battery)}%`;
+                batteryPercent.textContent = `${Math.round(Math.max(0, this.flashlight.battery))}%`;
+                
+                if (this.flashlight.battery < 25) {
+                    batteryLevel.style.background = '#F44336';
+                } else if (this.flashlight.battery < 50) {
+                    batteryLevel.style.background = '#FFC107';
+                } else {
+                    batteryLevel.style.background = '#4CAF50';
+                }
+            }
+
+            startParanormalEvents() {
+                setInterval(() => {
+                    if (this.gameOver) return;
+                    this.triggerParanormalEvent();
+                }, 5000 + Math.random() * 10000);
+
+                setInterval(() => {
+                    if (this.gameOver) return;
+                    this.spawnEnemy();
+                }, 15000 + Math.random() * 15000);
+            }
+
+            triggerParanormalEvent() {
+                const eventType = Math.random();
+                
+                if (eventType < 0.2) {
+                    // Flicker lights
+                    this.scene.children.forEach(child => {
+                        if (child.type === 'PointLight') {
+                            const originalIntensity = child.userData.originalIntensity || 0.3;
+                            child.intensity = Math.random() * originalIntensity;
+                            setTimeout(() => {
+                                child.intensity = originalIntensity;
+                            }, 200 + Math.random() * 500);
+                        }
+                    });
+                } else if (eventType < 0.4) {
+                    // Drain battery suddenly
+                    this.flashlight.battery = Math.max(0, this.flashlight.battery - 15);
+                    this.updateBatteryDisplay();
+                } else if (eventType < 0.6) {
+                    // Add creepy shadow
+                    this.addMovingShadow();
+                } else if (eventType < 0.8) {
+                    // Reduce flashlight effectiveness
+                    if (this.flashlight.light) {
+                        this.flashlight.light.intensity = 0.3;
+                        setTimeout(() => {
+                            this.flashlight.light.intensity = 1;
+                        }, 3000);
+                    }
+                } else {
+                    // Jumpscare
+                    this.triggerJumpscare();
+                }
+            }
+
+            addMovingShadow() {
+                const shadowMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0x000000,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                
+                const shadow = new THREE.Mesh(
+                    new THREE.PlaneGeometry(2, 4),
+                    shadowMaterial
+                );
+                
+                // Position shadow randomly in scene
+                shadow.position.set(
+                    -20 + Math.random() * 40,
+                    2,
+                    -20 + Math.random() * 40
+                );
+                shadow.lookAt(this.camera.position);
+                
+                this.scene.add(shadow);
+                
+                // Remove shadow after some time
+                setTimeout(() => {
+                    this.scene.remove(shadow);
+                }, 2000 + Math.random() * 3000);
+            }
+
+            spawnEnemy() {
+                const enemyMaterial = new THREE.MeshLambertMaterial({ color: 0x660000 });
+                const enemy = new THREE.Mesh(
+                    new THREE.BoxGeometry(1, 2, 1),
+                    enemyMaterial
+                );
+                
+                // Spawn enemy at random location
+                enemy.position.set(
+                    -20 + Math.random() * 40,
+                    1,
+                    -20 + Math.random() * 40
+                );
+                
+                enemy.userData = {
+                    speed: 0.02,
+                    target: this.camera.position.clone()
+                };
+                
+                this.scene.add(enemy);
+                this.enemies.push(enemy);
+            }
+
+            updateEnemies() {
+                this.enemies.forEach((enemy, index) => {
+                    // Move enemy towards player
+                    const direction = new THREE.Vector3().subVectors(this.camera.position, enemy.position);
+                    direction.y = 0;
+                    direction.normalize();
+                    
+                    enemy.position.add(direction.multiplyScalar(enemy.userData.speed));
+                    
+                    // Check if enemy caught player
+                    const distance = enemy.position.distanceTo(this.camera.position);
+                    if (distance < 2) {
+                        this.gameOver = true;
+                        document.getElementById('gameOverScreen').classList.remove('hidden');
+                    }
+                    
+                    // Remove enemy if too far
+                    if (distance > 50) {
+                        this.scene.remove(enemy);
+                        this.enemies.splice(index, 1);
+                    }
+                });
+            }
+
+            triggerJumpscare() {
+                if (Math.random() < 0.1) {
+                    this.gameOver = true;
+                    document.getElementById('gameOverScreen').classList.remove('hidden');
+                } else {
+                    // Flash red screen
+                    const flash = document.createElement('div');
+                    flash.style.position = 'fixed';
+                    flash.style.top = '0';
+                    flash.style.left = '0';
+                    flash.style.width = '100%';
+                    flash.style.height = '100%';
+                    flash.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
+                    flash.style.zIndex = '1000';
+                    flash.style.pointerEvents = 'none';
+                    document.body.appendChild(flash);
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(flash);
+                    }, 200);
+                }
+            }
+
+            gameLoop() {
+                this.updatePlayer();
+                this.updateEnemies();
+                this.timeElapsed++;
+                
+                // Update flickering lights
+                this.scene.children.forEach(child => {
+                    if (child.type === 'PointLight' && child.userData.flickerTime !== undefined) {
+                        child.userData.flickerTime += 16;
+                        if (child.userData.flickerTime > 2000 && Math.random() < 0.01) {
+                            child.intensity = Math.random() * child.userData.originalIntensity;
+                            child.userData.flickerTime = 0;
+                        }
+                    }
+                });
+                
+                this.renderer.render(this.scene, this.camera);
+                requestAnimationFrame(() => this.gameLoop());
+            }
+
+            restart() {
+                this.gameOver = false;
+                this.player.x = 5;
+                this.player.z = 5;
+                this.flashlight.battery = 100;
+                this.flashlight.on = true;
+                this.yaw = 0;
+                this.pitch = 0;
+                this.mouseX = 0;
+                this.mouseY = 0;
+                
+                // Remove all enemies
+                this.enemies.forEach(enemy => this.scene.remove(enemy));
+                this.enemies = [];
+                
+                this.updateBatteryDisplay();
+                document.getElementById('gameOverScreen').classList.add('hidden');
+                
+                if (this.flashlight.light) {
+                    this.flashlight.light.intensity = 1;
+                }
+            }
+        }
+
+        // Initialize game when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const game = new HorrorGame3D();
+        });
+    </script>
+</body>
+</html>
