@@ -274,7 +274,7 @@
                     z: 0,
                     speed: 0.15,
                     height: 1.7,
-                    currentFloor: 0 // 0 = planta baja, 1 = primer piso
+                    currentFloor: 0
                 };
 
                 // Movement and rotation
@@ -298,11 +298,11 @@
                     lastY: 0
                 };
 
-                // Flashlight properties - Batería más duradera
+                // Flashlight properties
                 this.flashlight = {
                     on: true,
                     battery: 100,
-                    drainRate: 0.008, // Reducido significativamente
+                    drainRate: 0.01, // Batería más duradera
                     light: null
                 };
 
@@ -311,12 +311,6 @@
                 this.timeElapsed = 0;
                 this.paranormalEvents = [];
                 this.nearStairs = false;
-
-                // Hospital layouts for both floors
-                this.floors = {
-                    0: [], // Ground floor objects
-                    1: []  // First floor objects
-                };
 
                 this.init();
             }
@@ -336,10 +330,10 @@
             }
 
             createHospital() {
-                // Suelo más grande y deteriorado
+                // Suelo principal
                 const floorGeometry = new THREE.PlaneGeometry(200, 200);
                 const floorMaterial = new THREE.MeshLambertMaterial({ 
-                    color: 0x0f0f0f,
+                    color: 0x1a1a1a,
                     transparent: true,
                     opacity: 0.9
                 });
@@ -348,58 +342,23 @@
                 floor.receiveShadow = true;
                 this.scene.add(floor);
 
-                // Crear ambos pisos
-                this.createGroundFloor();
-                this.createFirstFloor();
+                this.createWalls();
+                this.createRooms();
+                this.createFurniture();
                 this.createStaircase();
-            }
-
-            createGroundFloor() {
-                this.createExteriorWalls();
-                this.createMainCorridors();
-                this.createPatientRooms();
-                this.createEmergencyRoom();
-                this.createMorgue();
-                this.createLaboratory();
-                this.createOldEquipment();
                 this.createBloodStains();
-                this.createDebris();
             }
 
-            createFirstFloor() {
-                const yOffset = 8; // Altura del segundo piso
-                
-                // Suelo del segundo piso
-                const secondFloorGeometry = new THREE.PlaneGeometry(180, 180);
-                const secondFloorMaterial = new THREE.MeshLambertMaterial({ 
-                    color: 0x1a1a1a,
-                    transparent: true,
-                    opacity: 0.95
-                });
-                const secondFloor = new THREE.Mesh(secondFloorGeometry, secondFloorMaterial);
-                secondFloor.rotation.x = -Math.PI / 2;
-                secondFloor.position.y = yOffset;
-                secondFloor.receiveShadow = true;
-                this.scene.add(secondFloor);
-
-                this.createSecondFloorRooms(yOffset);
-                this.createOperatingRooms(yOffset);
-                this.createPsychiatricWing(yOffset);
-                this.createAbandonedOffices(yOffset);
-            }
-
-            createExteriorWalls() {
-                const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+            createWalls() {
+                const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
                 const wallHeight = 6;
-                const wallThickness = 1;
-                const buildingSize = 90;
                 
-                // Paredes exteriores deterioradas
+                // Paredes exteriores
                 const walls = [
-                    { pos: [0, wallHeight/2, -buildingSize], size: [buildingSize*2, wallHeight, wallThickness] },
-                    { pos: [0, wallHeight/2, buildingSize], size: [buildingSize*2, wallHeight, wallThickness] },
-                    { pos: [-buildingSize, wallHeight/2, 0], size: [wallThickness, wallHeight, buildingSize*2] },
-                    { pos: [buildingSize, wallHeight/2, 0], size: [wallThickness, wallHeight, buildingSize*2] }
+                    { pos: [0, wallHeight/2, -90], size: [180, wallHeight, 1] },
+                    { pos: [0, wallHeight/2, 90], size: [180, wallHeight, 1] },
+                    { pos: [-90, wallHeight/2, 0], size: [1, wallHeight, 180] },
+                    { pos: [90, wallHeight/2, 0], size: [1, wallHeight, 180] }
                 ];
 
                 walls.forEach(wall => {
@@ -412,30 +371,30 @@
                     wallMesh.receiveShadow = true;
                     this.scene.add(wallMesh);
                 });
+
+                // Paredes internas - pasillos
+                this.createCorridorWalls();
             }
 
-            createMainCorridors() {
+            createCorridorWalls() {
                 const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x2a2a2a });
                 const wallHeight = 6;
-                const wallThickness = 0.8;
-
+                
                 // Pasillo principal horizontal
-                const mainCorridorWalls = [
-                    { pos: [-80, wallHeight/2, -10], size: [20, wallHeight, wallThickness] },
-                    { pos: [-80, wallHeight/2, 10], size: [20, wallHeight, wallThickness] },
-                    { pos: [80, wallHeight/2, -10], size: [20, wallHeight, wallThickness] },
-                    { pos: [80, wallHeight/2, 10], size: [20, wallHeight, wallThickness] }
+                const corridorWalls = [
+                    { pos: [-80, wallHeight/2, -10], size: [20, wallHeight, 0.5] },
+                    { pos: [-80, wallHeight/2, 10], size: [20, wallHeight, 0.5] },
+                    { pos: [80, wallHeight/2, -10], size: [20, wallHeight, 0.5] },
+                    { pos: [80, wallHeight/2, 10], size: [20, wallHeight, 0.5] },
+                    
+                    // Pasillo vertical
+                    { pos: [-10, wallHeight/2, -80], size: [0.5, wallHeight, 20] },
+                    { pos: [10, wallHeight/2, -80], size: [0.5, wallHeight, 20] },
+                    { pos: [-10, wallHeight/2, 80], size: [0.5, wallHeight, 20] },
+                    { pos: [10, wallHeight/2, 80], size: [0.5, wallHeight, 20] }
                 ];
 
-                // Pasillo principal vertical
-                const verticalCorridorWalls = [
-                    { pos: [-10, wallHeight/2, -80], size: [wallThickness, wallHeight, 20] },
-                    { pos: [10, wallHeight/2, -80], size: [wallThickness, wallHeight, 20] },
-                    { pos: [-10, wallHeight/2, 80], size: [wallThickness, wallHeight, 20] },
-                    { pos: [10, wallHeight/2, 80], size: [wallThickness, wallHeight, 20] }
-                ];
-
-                [...mainCorridorWalls, ...verticalCorridorWalls].forEach(wall => {
+                corridorWalls.forEach(wall => {
                     const wallMesh = new THREE.Mesh(
                         new THREE.BoxGeometry(...wall.size),
                         wallMaterial
@@ -446,20 +405,18 @@
                 });
             }
 
-            createPatientRooms() {
+            createRooms() {
                 const roomWallMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
                 const wallHeight = 6;
-                const wallThickness = 0.5;
 
                 // Habitaciones del lado izquierdo
-                for (let i = 0; i < 8; i++) {
-                    const z = -70 + i * 18;
+                for (let i = 0; i < 6; i++) {
+                    const z = -70 + i * 25;
                     
-                    // Paredes de la habitación
                     const roomWalls = [
-                        { pos: [-55, wallHeight/2, z], size: [30, wallHeight, wallThickness] },
-                        { pos: [-55, wallHeight/2, z + 15], size: [30, wallHeight, wallThickness] },
-                        { pos: [-70, wallHeight/2, z + 7.5], size: [wallThickness, wallHeight, 15] }
+                        { pos: [-55, wallHeight/2, z], size: [30, wallHeight, 0.5] },
+                        { pos: [-55, wallHeight/2, z + 20], size: [30, wallHeight, 0.5] },
+                        { pos: [-70, wallHeight/2, z + 10], size: [0.5, wallHeight, 20] }
                     ];
 
                     roomWalls.forEach(wall => {
@@ -472,20 +429,19 @@
                         this.scene.add(wallMesh);
                     });
 
-                    // Mobiliario deteriorado
+                    // Mobiliario
                     this.createRustyBed(-60, z + 5);
-                    this.createBrokenNightstand(-50, z + 10);
-                    this.createOldChair(-65, z + 2);
+                    this.createOldChair(-50, z + 15);
                 }
 
                 // Habitaciones del lado derecho
-                for (let i = 0; i < 8; i++) {
-                    const z = -70 + i * 18;
+                for (let i = 0; i < 6; i++) {
+                    const z = -70 + i * 25;
                     
                     const roomWalls = [
-                        { pos: [55, wallHeight/2, z], size: [30, wallHeight, wallThickness] },
-                        { pos: [55, wallHeight/2, z + 15], size: [30, wallHeight, wallThickness] },
-                        { pos: [70, wallHeight/2, z + 7.5], size: [wallThickness, wallHeight, 15] }
+                        { pos: [55, wallHeight/2, z], size: [30, wallHeight, 0.5] },
+                        { pos: [55, wallHeight/2, z + 20], size: [30, wallHeight, 0.5] },
+                        { pos: [70, wallHeight/2, z + 10], size: [0.5, wallHeight, 20] }
                     ];
 
                     roomWalls.forEach(wall => {
@@ -499,156 +455,68 @@
                     });
 
                     this.createRustyBed(60, z + 5);
-                    this.createBrokenNightstand(50, z + 10);
-                    this.createOldChair(65, z + 2);
+                    this.createOldChair(50, z + 15);
                 }
             }
 
-            createEmergencyRoom() {
-                const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x2a2a2a });
-                const wallHeight = 6;
+            createFurniture() {
+                // Laboratorio
+                this.createLabTable(-30, 40);
+                this.createLabTable(-30, 60);
                 
-                // Sala de emergencias grande
-                const emergencyWalls = [
-                    { pos: [-40, wallHeight/2, -40], size: [40, wallHeight, 0.5] },
-                    { pos: [-40, wallHeight/2, -20], size: [40, wallHeight, 0.5] },
-                    { pos: [-60, wallHeight/2, -30], size: [0.5, wallHeight, 20] },
-                    { pos: [-20, wallHeight/2, -30], size: [0.5, wallHeight, 20] }
-                ];
-
-                emergencyWalls.forEach(wall => {
-                    const wallMesh = new THREE.Mesh(
-                        new THREE.BoxGeometry(...wall.size),
-                        wallMaterial
-                    );
-                    wallMesh.position.set(...wall.pos);
-                    wallMesh.castShadow = true;
-                    this.scene.add(wallMesh);
-                });
-
-                // Camillas ensangrentadas
-                for (let i = 0; i < 3; i++) {
-                    this.createBloodySurgeryTable(-50 + i * 10, -30);
-                }
-
-                // Equipo médico oxidado
-                this.createRustyMedicalCart(-35, -25);
-                this.createOldDefibrillator(-45, -35);
-            }
-
-            createMorgue() {
-                const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
-                const wallHeight = 6;
+                // Quirófano
+                this.createSurgeryTable(30, 40);
+                this.createSurgeryTable(30, 60);
                 
-                // Morgue en el sótano (visualmente)
-                const morgueWalls = [
-                    { pos: [40, wallHeight/2, -40], size: [40, wallHeight, 0.5] },
-                    { pos: [40, wallHeight/2, -20], size: [40, wallHeight, 0.5] },
-                    { pos: [20, wallHeight/2, -30], size: [0.5, wallHeight, 20] },
-                    { pos: [60, wallHeight/2, -30], size: [0.5, wallHeight, 20] }
-                ];
-
-                morgueWalls.forEach(wall => {
-                    const wallMesh = new THREE.Mesh(
-                        new THREE.BoxGeometry(...wall.size),
-                        wallMaterial
-                    );
-                    wallMesh.position.set(...wall.pos);
-                    wallMesh.castShadow = true;
-                    this.scene.add(wallMesh);
-                });
-
-                // Mesas de autopsias
-                for (let i = 0; i < 4; i++) {
-                    this.createAutopsyTable(30 + i * 8, -35 + (i % 2) * 10);
-                }
-
-                // Refrigeradores para cadáveres
-                this.createMorgueRefrigerators(25, -25);
-            }
-
-            createLaboratory() {
-                const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x2a2a2a });
-                const wallHeight = 6;
-                
-                // Laboratorio grande
-                const labWalls = [
-                    { pos: [-40, wallHeight/2, 40], size: [50, wallHeight, 0.5] },
-                    { pos: [-40, wallHeight/2, 70], size: [50, wallHeight, 0.5] },
-                    { pos: [-65, wallHeight/2, 55], size: [0.5, wallHeight, 30] },
-                    { pos: [-15, wallHeight/2, 55], size: [0.5, wallHeight, 30] }
-                ];
-
-                labWalls.forEach(wall => {
-                    const wallMesh = new THREE.Mesh(
-                        new THREE.BoxGeometry(...wall.size),
-                        wallMaterial
-                    );
-                    wallMesh.position.set(...wall.pos);
-                    wallMesh.castShadow = true;
-                    this.scene.add(wallMesh);
-                });
-
-                // Mesas de laboratorio con químicos derramados
-                for (let i = 0; i < 4; i++) {
-                    this.createLabTable(-55 + i * 10, 50 + (i % 2) * 10);
-                    this.createSpilledChemicals(-55 + i * 10, 52 + (i % 2) * 10);
-                }
-
-                // Microscopios rotos
-                this.createBrokenMicroscope(-30, 45);
-                this.createBrokenMicroscope(-50, 65);
+                // Equipo médico disperso
+                this.createMedicalCart(0, 50);
+                this.createWheelchair(20, 30);
             }
 
             createStaircase() {
-                const stairMaterial = new THREE.MeshLambertMaterial({ color: 0x444444 });
+                const stairMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
                 
-                // Escaleras principales
-                for (let i = 0; i < 16; i++) {
+                // Escaleras
+                for (let i = 0; i < 20; i++) {
                     const step = new THREE.Mesh(
-                        new THREE.BoxGeometry(8, 0.3, 1.2),
+                        new THREE.BoxGeometry(8, 0.4, 1.2),
                         stairMaterial
                     );
-                    step.position.set(0, i * 0.5, 30 - i * 0.3);
+                    step.position.set(0, i * 0.4, 25 - i * 0.3);
                     step.castShadow = true;
                     step.receiveShadow = true;
                     this.scene.add(step);
                 }
 
-                // Pasamanos oxidados
-                const handrailMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
-                const leftHandrail = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.2, 1, 10),
-                    handrailMaterial
-                );
-                leftHandrail.position.set(-3.5, 4, 25);
-                leftHandrail.castShadow = true;
-                this.scene.add(leftHandrail);
+                // Segundo piso
+                const secondFloorGeometry = new THREE.PlaneGeometry(160, 160);
+                const secondFloorMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x222222
+                });
+                const secondFloor = new THREE.Mesh(secondFloorGeometry, secondFloorMaterial);
+                secondFloor.rotation.x = -Math.PI / 2;
+                secondFloor.position.y = 8;
+                secondFloor.receiveShadow = true;
+                this.scene.add(secondFloor);
 
-                const rightHandrail = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.2, 1, 10),
-                    handrailMaterial
-                );
-                rightHandrail.position.set(3.5, 4, 25);
-                rightHandrail.castShadow = true;
-                this.scene.add(rightHandrail);
+                // Habitaciones segundo piso
+                this.createSecondFloorRooms();
             }
 
-            createSecondFloorRooms(yOffset) {
+            createSecondFloorRooms() {
                 const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
                 const wallHeight = 6;
+                const yOffset = 8;
 
-                // Más habitaciones en el segundo piso
-                for (let i = 0; i < 10; i++) {
-                    const x = -70 + (i % 5) * 28;
-                    const z = -60 + Math.floor(i / 5) * 40;
+                for (let i = 0; i < 8; i++) {
+                    const x = -60 + (i % 4) * 30;
+                    const z = -50 + Math.floor(i / 4) * 40;
                     
-                    // Paredes de habitación
                     const roomWalls = [
                         { pos: [x, yOffset + wallHeight/2, z], size: [25, wallHeight, 0.5] },
-                        { pos: [x, yOffset + wallHeight/2, z + 20], size: [25, wallHeight, 0.5] },
-                        { pos: [x - 12.5, yOffset + wallHeight/2, z + 10], size: [0.5, wallHeight, 20] },
-                        { pos: [x + 12.5, yOffset + wallHeight/2, z + 10], size: [0.5, wallHeight, 20] }
+                        { pos: [x, yOffset + wallHeight/2, z + 25], size: [25, wallHeight, 0.5] },
+                        { pos: [x - 12.5, yOffset + wallHeight/2, z + 12.5], size: [0.5, wallHeight, 25] },
+                        { pos: [x + 12.5, yOffset + wallHeight/2, z + 12.5], size: [0.5, wallHeight, 25] }
                     ];
 
                     roomWalls.forEach(wall => {
@@ -661,117 +529,19 @@
                         this.scene.add(wallMesh);
                     });
 
-                    // Mobiliario del segundo piso
                     this.createRustyBed(x, z + 5, yOffset);
-                    this.createOldWheelchair(x + 8, z + 12, yOffset);
+                    this.createOldChair(x + 8, z + 15, yOffset);
                 }
             }
 
-            createOperatingRooms(yOffset) {
-                const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x2a2a2a });
-                const wallHeight = 6;
-
-                // Quirófanos principales
-                for (let i = 0; i < 3; i++) {
-                    const x = -20 + i * 20;
-                    const z = 40;
-                    
-                    const roomWalls = [
-                        { pos: [x, yOffset + wallHeight/2, z], size: [18, wallHeight, 0.5] },
-                        { pos: [x, yOffset + wallHeight/2, z + 25], size: [18, wallHeight, 0.5] },
-                        { pos: [x - 9, yOffset + wallHeight/2, z + 12.5], size: [0.5, wallHeight, 25] },
-                        { pos: [x + 9, yOffset + wallHeight/2, z + 12.5], size: [0.5, wallHeight, 25] }
-                    ];
-
-                    roomWalls.forEach(wall => {
-                        const wallMesh = new THREE.Mesh(
-                            new THREE.BoxGeometry(...wall.size),
-                            wallMaterial
-                        );
-                        wallMesh.position.set(...wall.pos);
-                        wallMesh.castShadow = true;
-                        this.scene.add(wallMesh);
-                    });
-
-                    // Mesas de operaciones ensangrentadas
-                    this.createBloodySurgeryTable(x, z + 12, yOffset);
-                    this.createSurgicalLamps(x, z + 15, yOffset);
-                }
-            }
-
-            createPsychiatricWing(yOffset) {
-                const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
-                const wallHeight = 6;
-
-                // Ala psiquiátrica - más siniestra
-                const psychWalls = [
-                    { pos: [60, yOffset + wallHeight/2, -30], size: [30, wallHeight, 0.5] },
-                    { pos: [60, yOffset + wallHeight/2, 30], size: [30, wallHeight, 0.5] },
-                    { pos: [45, yOffset + wallHeight/2, 0], size: [0.5, wallHeight, 60] },
-                    { pos: [75, yOffset + wallHeight/2, 0], size: [0.5, wallHeight, 60] }
-                ];
-
-                psychWalls.forEach(wall => {
-                    const wallMesh = new THREE.Mesh(
-                        new THREE.BoxGeometry(...wall.size),
-                        wallMaterial
-                    );
-                    wallMesh.position.set(...wall.pos);
-                    wallMesh.castShadow = true;
-                    this.scene.add(wallMesh);
-                });
-
-                // Celdas acolchadas
-                for (let i = 0; i < 6; i++) {
-                    this.createPaddedCell(50 + (i % 2) * 12, -20 + (i % 3) * 15, yOffset);
-                }
-
-                // Sillas de electroshock
-                this.createElectroshockChair(65, -10, yOffset);
-                this.createElectroshockChair(65, 10, yOffset);
-            }
-
-            createAbandonedOffices(yOffset) {
-                const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
-                const wallHeight = 6;
-
-                // Oficinas abandonadas
-                for (let i = 0; i < 4; i++) {
-                    const x = -60 + i * 15;
-                    const z = -40;
-                    
-                    const officeWalls = [
-                        { pos: [x, yOffset + wallHeight/2, z], size: [12, wallHeight, 0.5] },
-                        { pos: [x, yOffset + wallHeight/2, z + 15], size: [12, wallHeight, 0.5] },
-                        { pos: [x - 6, yOffset + wallHeight/2, z + 7.5], size: [0.5, wallHeight, 15] },
-                        { pos: [x + 6, yOffset + wallHeight/2, z + 7.5], size: [0.5, wallHeight, 15] }
-                    ];
-
-                    officeWalls.forEach(wall => {
-                        const wallMesh = new THREE.Mesh(
-                            new THREE.BoxGeometry(...wall.size),
-                            wallMaterial
-                        );
-                        wallMesh.position.set(...wall.pos);
-                        wallMesh.castShadow = true;
-                        this.scene.add(wallMesh);
-                    });
-
-                    // Mobiliario de oficina viejo
-                    this.createOldDesk(x, z + 5, yOffset);
-                    this.createBrokenComputer(x + 3, z + 8, yOffset);
-                }
-            }
-
-            // Métodos para crear objetos específicos más detallados y terroríficos
+            // Funciones de mobiliario
 
             createRustyBed(x, z, yOffset = 0) {
-                const bedMaterial = new THREE.MeshLambertMaterial({ color: 0x3a2a1a });
-                const rustMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                const bedMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
                 
                 const bedFrame = new THREE.Mesh(
                     new THREE.BoxGeometry(2.5, 0.8, 4.5),
-                    rustMaterial
+                    bedMaterial
                 );
                 bedFrame.position.set(x, yOffset + 0.4, z);
                 bedFrame.castShadow = true;
@@ -779,86 +549,99 @@
 
                 const mattress = new THREE.Mesh(
                     new THREE.BoxGeometry(2.2, 0.4, 4.2),
-                    bedMaterial
+                    new THREE.MeshLambertMaterial({ color: 0x4a4a4a })
                 );
                 mattress.position.set(x, yOffset + 1, z);
                 mattress.castShadow = true;
                 this.scene.add(mattress);
+            }
 
-                // Manchas de sangre en el colchón
+            createOldChair(x, z, yOffset = 0) {
+                const chairMaterial = new THREE.MeshLambertMaterial({ color: 0x555555 });
+                
+                const seat = new THREE.Mesh(
+                    new THREE.BoxGeometry(1, 0.2, 1),
+                    chairMaterial
+                );
+                seat.position.set(x, yOffset + 1, z);
+                seat.castShadow = true;
+                this.scene.add(seat);
+
+                const backrest = new THREE.Mesh(
+                    new THREE.BoxGeometry(1, 1.5, 0.2),
+                    chairMaterial
+                );
+                backrest.position.set(x, yOffset + 1.6, z - 0.4);
+                backrest.castShadow = true;
+                this.scene.add(backrest);
+            }
+
+            createLabTable(x, z, yOffset = 0) {
+                const tableMaterial = new THREE.MeshLambertMaterial({ color: 0x777777 });
+                
+                const table = new THREE.Mesh(
+                    new THREE.BoxGeometry(3, 0.3, 1.5),
+                    tableMaterial
+                );
+                table.position.set(x, yOffset + 1.2, z);
+                table.castShadow = true;
+                this.scene.add(table);
+
+                // Químicos derramados
+                for (let i = 0; i < 3; i++) {
+                    const spill = new THREE.Mesh(
+                        new THREE.CircleGeometry(0.3, 8),
+                        new THREE.MeshLambertMaterial({ 
+                            color: [0x00ff00, 0xff0000, 0x0000ff][i],
+                            transparent: true,
+                            opacity: 0.7
+                        })
+                    );
+                    spill.rotation.x = -Math.PI / 2;
+                    spill.position.set(x + (i - 1) * 0.8, yOffset + 1.51, z);
+                    this.scene.add(spill);
+                }
+            }
+
+            createSurgeryTable(x, z, yOffset = 0) {
+                const tableMaterial = new THREE.MeshLambertMaterial({ color: 0x888888 });
+                
+                const table = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.5, 0.4, 5),
+                    tableMaterial
+                );
+                table.position.set(x, yOffset + 1.2, z);
+                table.castShadow = true;
+                this.scene.add(table);
+
+                // Manchas de sangre
                 const bloodStain = new THREE.Mesh(
                     new THREE.CircleGeometry(0.8, 8),
                     new THREE.MeshLambertMaterial({ color: 0x8b0000 })
                 );
                 bloodStain.rotation.x = -Math.PI / 2;
-                bloodStain.position.set(x, yOffset + 1.21, z);
+                bloodStain.position.set(x, yOffset + 1.41, z);
                 this.scene.add(bloodStain);
             }
 
-            createBloodySurgeryTable(x, z, yOffset = 0) {
-                const tableMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
-                const surgeryTable = new THREE.Mesh(
-                    new THREE.BoxGeometry(2.5, 0.4, 5),
-                    tableMaterial
-                );
-                surgeryTable.position.set(x, yOffset + 1.2, z);
-                surgeryTable.castShadow = true;
-                this.scene.add(surgeryTable);
-
-                // Múltiples manchas de sangre
-                for (let i = 0; i < 3; i++) {
-                    const bloodStain = new THREE.Mesh(
-                        new THREE.CircleGeometry(0.4 + Math.random() * 0.3, 8),
-                        new THREE.MeshLambertMaterial({ color: 0x8b0000 })
-                    );
-                    bloodStain.rotation.x = -Math.PI / 2;
-                    bloodStain.position.set(x + (Math.random() - 0.5), yOffset + 1.41, z + (Math.random() - 0.5) * 2);
-                    this.scene.add(bloodStain);
-                }
-
-                // Instrumentos quirúrgicos ensangrentados
-                this.createBloodyInstruments(x + 1, z, yOffset);
-            }
-
-            createBloodyInstruments(x, z, yOffset = 0) {
-                const metalMaterial = new THREE.MeshLambertMaterial({ color: 0x777777 });
-                const bloodMaterial = new THREE.MeshLambertMaterial({ color: 0x8b0000 });
+            createMedicalCart(x, z, yOffset = 0) {
+                const cartMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
                 
-                // Bisturí
-                const scalpel = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.1, 0.05, 1),
-                    metalMaterial
+                const cart = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.5, 1.2, 1),
+                    cartMaterial
                 );
-                scalpel.position.set(x, yOffset + 1.42, z);
-                scalpel.castShadow = true;
-                this.scene.add(scalpel);
-
-                // Sierra quirúrgica
-                const saw = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.2, 0.1, 1.5),
-                    metalMaterial
-                );
-                saw.position.set(x + 0.3, yOffset + 1.42, z + 0.5);
-                saw.castShadow = true;
-                this.scene.add(saw);
-
-                // Bandeja con más instrumentos
-                const tray = new THREE.Mesh(
-                    new THREE.BoxGeometry(1.8, 0.1, 1.2),
-                    metalMaterial
-                );
-                tray.position.set(x, yOffset + 1.41, z + 1);
-                tray.castShadow = true;
-                this.scene.add(tray);
+                cart.position.set(x, yOffset + 0.6, z);
+                cart.castShadow = true;
+                this.scene.add(cart);
             }
 
-            createOldWheelchair(x, z, yOffset = 0) {
-                const chairMaterial = new THREE.MeshLambertMaterial({ color: 0x4a4a4a });
-                const rustMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            createWheelchair(x, z, yOffset = 0) {
+                const chairMaterial = new THREE.MeshLambertMaterial({ color: 0x555555 });
                 
                 const seat = new THREE.Mesh(
                     new THREE.BoxGeometry(1.2, 0.15, 1.2),
-                    rustMaterial
+                    chairMaterial
                 );
                 seat.position.set(x, yOffset + 1, z);
                 seat.castShadow = true;
@@ -872,7 +655,7 @@
                 backrest.castShadow = true;
                 this.scene.add(backrest);
 
-                // Ruedas rotas
+                // Ruedas
                 for (let i = 0; i < 4; i++) {
                     const wheel = new THREE.Mesh(
                         new THREE.CylinderGeometry(0.25, 0.25, 0.1),
@@ -889,39 +672,6 @@
                 }
             }
 
-            createSpilledChemicals(x, z, yOffset = 0) {
-                const colors = [0x00ff00, 0xff0000, 0x0000ff, 0xffff00, 0xff00ff];
-                
-                for (let i = 0; i < 5; i++) {
-                    // Botellas rotas
-                    const bottleGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.6);
-                    const bottleMaterial = new THREE.MeshLambertMaterial({ 
-                        color: colors[i],
-                        transparent: true,
-                        opacity: 0.7
-                    });
-                    
-                    const bottle = new THREE.Mesh(bottleGeometry, bottleMaterial);
-                    bottle.position.set(x + i * 0.3, yOffset + 0.3, z);
-                    bottle.rotation.z = Math.random() * Math.PI;
-                    bottle.castShadow = true;
-                    this.scene.add(bottle);
-
-                    // Charcos químicos
-                    const spill = new THREE.Mesh(
-                        new THREE.CircleGeometry(0.4 + Math.random() * 0.3, 8),
-                        new THREE.MeshLambertMaterial({ 
-                            color: colors[i],
-                            transparent: true,
-                            opacity: 0.6
-                        })
-                    );
-                    spill.rotation.x = -Math.PI / 2;
-                    spill.position.set(x + i * 0.3 + (Math.random() - 0.5), yOffset + 0.01, z + (Math.random() - 0.5));
-                    this.scene.add(spill);
-                }
-            }
-
             createBloodStains() {
                 const bloodMaterial = new THREE.MeshLambertMaterial({ 
                     color: 0x8b0000,
@@ -929,11 +679,10 @@
                     opacity: 0.8
                 });
 
-                // Más manchas de sangre por todo el hospital
-                for (let i = 0; i < 50; i++) {
+                for (let i = 0; i < 30; i++) {
                     const x = -80 + Math.random() * 160;
                     const z = -80 + Math.random() * 160;
-                    const size = 0.3 + Math.random() * 1.5;
+                    const size = 0.3 + Math.random() * 1.2;
 
                     const bloodStain = new THREE.Mesh(
                         new THREE.CircleGeometry(size, 8),
@@ -943,97 +692,18 @@
                     bloodStain.position.set(x, 0.01, z);
                     this.scene.add(bloodStain);
                 }
-
-                // Salpicaduras en las paredes
-                for (let i = 0; i < 30; i++) {
-                    const x = -80 + Math.random() * 160;
-                    const y = 0.5 + Math.random() * 3;
-                    const z = Math.random() < 0.5 ? -89.9 : 89.9;
-
-                    const wallBlood = new THREE.Mesh(
-                        new THREE.CircleGeometry(0.2 + Math.random() * 0.4, 8),
-                        bloodMaterial
-                    );
-                    wallBlood.position.set(x, y, z);
-                    this.scene.add(wallBlood);
-                }
-
-                // Rastros de sangre (como si arrastraran algo)
-                for (let i = 0; i < 10; i++) {
-                    const startX = -70 + Math.random() * 140;
-                    const startZ = -70 + Math.random() * 140;
-                    
-                    for (let j = 0; j < 20; j++) {
-                        const trail = new THREE.Mesh(
-                            new THREE.CircleGeometry(0.1 + Math.random() * 0.2, 6),
-                            bloodMaterial
-                        );
-                        trail.rotation.x = -Math.PI / 2;
-                        trail.position.set(startX + j * 0.5, 0.01, startZ + j * 0.3);
-                        this.scene.add(trail);
-                    }
-                }
-            }
-
-            createDebris() {
-                // Escombros más detallados y terroríficos
-                for (let i = 0; i < 25; i++) {
-                    const x = -80 + Math.random() * 160;
-                    const z = -80 + Math.random() * 160;
-                    
-                    // Escombros de techo caído
-                    const debris = new THREE.Mesh(
-                        new THREE.BoxGeometry(1 + Math.random() * 2, 0.2, 1 + Math.random() * 2),
-                        new THREE.MeshLambertMaterial({ color: 0x444444 })
-                    );
-                    debris.position.set(x, 0.1, z);
-                    debris.rotation.y = Math.random() * Math.PI;
-                    debris.castShadow = true;
-                    this.scene.add(debris);
-                }
-
-                // Vidrios rotos más realistas
-                for (let i = 0; i < 15; i++) {
-                    const x = -80 + Math.random() * 160;
-                    const z = -80 + Math.random() * 160;
-                    
-                    const glass = new THREE.Mesh(
-                        new THREE.PlaneGeometry(0.8, 0.8),
-                        new THREE.MeshLambertMaterial({ 
-                            color: 0xffffff,
-                            transparent: true,
-                            opacity: 0.4
-                        })
-                    );
-                    glass.rotation.x = -Math.PI / 2 + (Math.random() - 0.5) * 0.5;
-                    glass.position.set(x, 0.02, z);
-                    this.scene.add(glass);
-                }
-
-                // Papeles médicos esparcidos
-                for (let i = 0; i < 30; i++) {
-                    const x = -80 + Math.random() * 160;
-                    const z = -80 + Math.random() * 160;
-                    
-                    const paper = new THREE.Mesh(
-                        new THREE.PlaneGeometry(0.3, 0.4),
-                        new THREE.MeshLambertMaterial({ color: 0xf5f5dc })
-                    );
-                    paper.rotation.x = -Math.PI / 2;
-                    paper.position.set(x, 0.01, z);
-                    this.scene.add(paper);
-                }
             }
 
             createLighting() {
-                // Luz ambiental muy tenue para mayor terror
-                const ambientLight = new THREE.AmbientLight(0x404040, 0.05);
+                // Luz ambiental muy tenue
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.1);
                 this.scene.add(ambientLight);
 
+                // Luces parpadeantes
                 this.createFlickeringLights();
 
-                // Linterna mejorada
-                this.flashlight.light = new THREE.SpotLight(0xffffff, 2.5, 30, Math.PI / 3.5, 0.2);
+                // Linterna
+                this.flashlight.light = new THREE.SpotLight(0xffffff, 3, 40, Math.PI / 3, 0.3);
                 this.flashlight.light.position.copy(this.camera.position);
                 this.flashlight.light.target.position.set(0, 0, -1);
                 this.flashlight.light.castShadow = true;
@@ -1044,45 +714,30 @@
             }
 
             createFlickeringLights() {
-                // Luces parpadeantes más distribuidas
                 const lightPositions = [
                     [-40, 5.5, -40], [0, 5.5, -40], [40, 5.5, -40],
                     [-40, 5.5, 0], [0, 5.5, 0], [40, 5.5, 0],
                     [-40, 5.5, 40], [0, 5.5, 40], [40, 5.5, 40],
-                    // Segundo piso
                     [-40, 13.5, -40], [0, 13.5, -40], [40, 13.5, -40],
-                    [-40, 13.5, 0], [0, 13.5, 0], [40, 13.5, 0],
-                    [-40, 13.5, 40], [0, 13.5, 40], [40, 13.5, 40]
+                    [-40, 13.5, 0], [0, 13.5, 0], [40, 13.5, 0]
                 ];
                 
                 lightPositions.forEach(pos => {
-                    const light = new THREE.PointLight(0xffffff, 0.2, 20);
+                    const light = new THREE.PointLight(0xffffaa, 0.3, 25);
                     light.position.set(...pos);
                     light.castShadow = true;
-                    light.shadow.mapSize.width = 512;
-                    light.shadow.mapSize.height = 512;
                     
                     light.userData = {
-                        originalIntensity: 0.2,
+                        originalIntensity: 0.3,
                         flickerTime: Math.random() * 1000,
-                        broken: Math.random() < 0.3
+                        broken: Math.random() < 0.2
                     };
                     
                     this.scene.add(light);
-                    
-                    // Luminaria colgante
-                    const fixture = new THREE.Mesh(
-                        new THREE.BoxGeometry(1.5, 0.3, 0.8),
-                        new THREE.MeshLambertMaterial({ color: 0x666666 })
-                    );
-                    fixture.position.set(pos[0], pos[1] + 0.4, pos[2]);
-                    fixture.castShadow = true;
-                    this.scene.add(fixture);
                 });
             }
 
             setupControls() {
-                // Controles de escritorio
                 document.addEventListener('keydown', (e) => {
                     this.keys[e.key.toLowerCase()] = true;
                     if (e.key.toLowerCase() === ' ') {
@@ -1113,7 +768,6 @@
                     }
                 });
 
-                // Controles móviles
                 if (this.isMobile) {
                     this.setupMobileControls();
                 }
@@ -1135,7 +789,6 @@
                 const flashlightBtn = document.getElementById('flashlightBtn');
                 const useBtn = document.getElementById('useBtn');
 
-                // Controles de joystick
                 joystickElement.addEventListener('touchstart', (e) => {
                     e.preventDefault();
                     this.joystick.active = true;
@@ -1158,15 +811,9 @@
                             this.joystick.currentX = deltaX / maxDistance;
                             this.joystick.currentY = deltaY / maxDistance;
                             joystickKnob.style.transform = `translate(-50%, -50%) translate(${deltaX}px, ${deltaY}px)`;
-                        } else {
-                            const angle = Math.atan2(deltaY, deltaX);
-                            this.joystick.currentX = Math.cos(angle);
-                            this.joystick.currentY = Math.sin(angle);
-                            joystickKnob.style.transform = `translate(-50%, -50%) translate(${Math.cos(angle) * maxDistance}px, ${Math.sin(angle) * maxDistance}px)`;
                         }
                     }
                     
-                    // Controles de mirada táctil
                     if (e.touches.length > 1 || (!this.joystick.active && e.touches.length === 1)) {
                         const touch = e.touches[this.joystick.active ? 1 : 0];
                         if (this.touchLook.active) {
@@ -1210,15 +857,12 @@
                 let newX = this.player.x;
                 let newZ = this.player.z;
 
-                // Calcular dirección de movimiento
                 const forward = new THREE.Vector3(0, 0, -1);
                 const right = new THREE.Vector3(1, 0, 0);
                 
-                // Aplicar rotación de cámara a vectores de movimiento
                 forward.applyEuler(new THREE.Euler(0, this.yaw, 0));
                 right.applyEuler(new THREE.Euler(0, this.yaw, 0));
 
-                // Movimiento de escritorio
                 if (this.keys['w']) {
                     newX += forward.x * moveSpeed;
                     newZ += forward.z * moveSpeed;
@@ -1236,27 +880,22 @@
                     newZ += right.z * moveSpeed;
                 }
 
-                // Movimiento móvil (joystick)
                 if (this.isMobile && (this.joystick.currentX !== 0 || this.joystick.currentY !== 0)) {
                     newX += (forward.x * -this.joystick.currentY + right.x * this.joystick.currentX) * moveSpeed;
                     newZ += (forward.z * -this.joystick.currentY + right.z * this.joystick.currentX) * moveSpeed;
                 }
 
-                // Detección de colisiones y límites
-                if (newX > -88 && newX < 88 && newZ > -88 && newZ < 88) {
+                if (newX > -85 && newX < 85 && newZ > -85 && newZ < 85) {
                     this.player.x = newX;
                     this.player.z = newZ;
                 }
 
-                // Verificar proximidad a escaleras
                 const stairDistance = Math.sqrt(Math.pow(this.player.x - 0, 2) + Math.pow(this.player.z - 25, 2));
                 this.nearStairs = stairDistance < 5;
 
-                // Actualizar posición y rotación de cámara
                 this.camera.position.set(this.player.x, this.player.y + (this.player.currentFloor * 8), this.player.z);
                 this.camera.rotation.set(this.pitch, this.yaw, 0);
 
-                // Actualizar posición y dirección de la linterna
                 if (this.flashlight.light) {
                     this.flashlight.light.position.copy(this.camera.position);
                     
@@ -1265,7 +904,6 @@
                     this.flashlight.light.target.position.copy(this.camera.position).add(direction);
                 }
 
-                // Drenaje de batería más lento
                 if (this.flashlight.on && this.flashlight.battery > 0) {
                     this.flashlight.battery -= this.flashlight.drainRate;
                     this.updateBatteryDisplay();
@@ -1282,11 +920,9 @@
                     this.player.currentFloor = this.player.currentFloor === 0 ? 1 : 0;
                     this.player.y = 1.7 + (this.player.currentFloor * 8);
                     
-                    // Actualizar indicador de piso
                     document.getElementById('currentFloor').textContent = 
                         this.player.currentFloor === 0 ? 'Planta Baja' : 'Primer Piso';
                     
-                    // Mover al jugador un poco para evitar bucle infinito
                     this.player.z += this.player.currentFloor === 0 ? -10 : 10;
                 }
             }
@@ -1295,7 +931,7 @@
                 if (this.flashlight.battery > 0) {
                     this.flashlight.on = !this.flashlight.on;
                     if (this.flashlight.light) {
-                        this.flashlight.light.intensity = this.flashlight.on ? 2.5 : 0;
+                        this.flashlight.light.intensity = this.flashlight.on ? 3 : 0;
                     }
                 }
             }
@@ -1320,41 +956,28 @@
                 setInterval(() => {
                     if (this.gameOver) return;
                     this.triggerParanormalEvent();
-                }, 8000 + Math.random() * 12000);
+                }, 10000 + Math.random() * 15000);
             }
 
             triggerParanormalEvent() {
                 const eventType = Math.random();
                 
-                if (eventType < 0.3) {
-                    // Parpadeo de luces más dramático
+                if (eventType < 0.4) {
                     this.scene.children.forEach(child => {
                         if (child.type === 'PointLight' && child.userData.originalIntensity) {
                             const originalIntensity = child.userData.originalIntensity;
-                            child.intensity = Math.random() * originalIntensity * 0.5;
+                            child.intensity = Math.random() * originalIntensity * 0.3;
                             setTimeout(() => {
                                 child.intensity = child.userData.broken ? 0 : originalIntensity;
-                            }, 300 + Math.random() * 700);
+                            }, 500 + Math.random() * 1000);
                         }
                     });
-                } else if (eventType < 0.5) {
-                    // Drenaje súbito de batería (menos agresivo)
-                    this.flashlight.battery = Math.max(0, this.flashlight.battery - 8);
+                } else if (eventType < 0.6) {
+                    this.flashlight.battery = Math.max(0, this.flashlight.battery - 5);
                     this.updateBatteryDisplay();
-                } else if (eventType < 0.7) {
-                    // Sombras moviéndose
+                } else if (eventType < 0.8) {
                     this.addMovingShadow();
-                } else if (eventType < 0.9) {
-                    // Reducción temporal del alcance de la linterna
-                    if (this.flashlight.light && this.flashlight.on) {
-                        const originalDistance = this.flashlight.light.distance;
-                        this.flashlight.light.distance = originalDistance * 0.4;
-                        setTimeout(() => {
-                            if (this.flashlight.on) this.flashlight.light.distance = originalDistance;
-                        }, 4000);
-                    }
                 } else {
-                    // Flash rojo aterrador
                     this.triggerJumpscare();
                 }
             }
@@ -1363,11 +986,11 @@
                 const shadowMaterial = new THREE.MeshBasicMaterial({ 
                     color: 0x000000,
                     transparent: true,
-                    opacity: 0.9
+                    opacity: 0.7
                 });
                 
                 const shadow = new THREE.Mesh(
-                    new THREE.PlaneGeometry(3, 6),
+                    new THREE.PlaneGeometry(2, 4),
                     shadowMaterial
                 );
                 
@@ -1382,28 +1005,26 @@
                 
                 setTimeout(() => {
                     this.scene.remove(shadow);
-                }, 3000 + Math.random() * 4000);
+                }, 3000 + Math.random() * 2000);
             }
 
             triggerJumpscare() {
-                // Flash rojo menos agresivo
                 const flash = document.createElement('div');
                 flash.style.position = 'fixed';
                 flash.style.top = '0';
                 flash.style.left = '0';
                 flash.style.width = '100%';
                 flash.style.height = '100%';
-                flash.style.backgroundColor = 'rgba(255, 0, 0, 0.4)';
+                flash.style.backgroundColor = 'rgba(255, 0, 0, 0.3)';
                 flash.style.zIndex = '1000';
                 flash.style.pointerEvents = 'none';
                 document.body.appendChild(flash);
                 
                 setTimeout(() => {
                     document.body.removeChild(flash);
-                }, 150);
+                }, 200);
 
-                // Reducir batería ligeramente
-                this.flashlight.battery = Math.max(0, this.flashlight.battery - 5);
+                this.flashlight.battery = Math.max(0, this.flashlight.battery - 3);
                 this.updateBatteryDisplay();
             }
 
@@ -1411,11 +1032,10 @@
                 this.updatePlayer();
                 this.timeElapsed++;
                 
-                // Actualizar luces parpadeantes
                 this.scene.children.forEach(child => {
                     if (child.type === 'PointLight' && child.userData.flickerTime !== undefined) {
                         child.userData.flickerTime += 16;
-                        if (child.userData.flickerTime > 3000 && Math.random() < 0.008) {
+                        if (child.userData.flickerTime > 2000 + Math.random() * 3000) {
                             if (!child.userData.broken) {
                                 child.intensity = Math.random() * child.userData.originalIntensity;
                                 child.userData.flickerTime = 0;
@@ -1444,7 +1064,7 @@
                 document.getElementById('currentFloor').textContent = 'Planta Baja';
                 
                 if (this.flashlight.light) {
-                    this.flashlight.light.intensity = 2.5;
+                    this.flashlight.light.intensity = 3;
                 }
             }
         }
